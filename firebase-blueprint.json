@@ -1,0 +1,66 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile with gamification stats",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "points": { "type": "integer" },
+        "level": { "type": "integer" },
+        "badges": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "points", "level", "createdAt"]
+    },
+    "Habit": {
+      "title": "Habit",
+      "description": "A habit to track",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "icon": { "type": "string" },
+        "color": { "type": "string" },
+        "frequency": { "type": "string", "enum": ["daily", "weekly", "weekdays"] },
+        "order": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "archived": { "type": "boolean" }
+      },
+      "required": ["userId", "name", "frequency", "order", "createdAt"]
+    },
+    "HabitLog": {
+      "title": "Habit Log",
+      "description": "A daily check-in for a habit",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "habitId": { "type": "string" },
+        "userId": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "status": { "type": "string", "enum": ["completed", "skipped", "failed"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["habitId", "userId", "date", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Store user profiles"
+    },
+    "/habits/{habitId}": {
+      "schema": "Habit",
+      "description": "Store habits"
+    },
+    "/habitLogs/{logId}": {
+      "schema": "HabitLog",
+      "description": "Store daily completions"
+    }
+  }
+}

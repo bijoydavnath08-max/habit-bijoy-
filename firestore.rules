@@ -1,0 +1,76 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    // --- User Validation ---
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'points', 'level', 'createdAt']) &&
+             data.keys().size() <= 10 &&
+             data.uid == request.auth.uid &&
+             data.email is string &&
+             data.points is int &&
+             data.level is int &&
+             data.createdAt is timestamp;
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(incoming());
+      allow update: if isOwner(userId) && isValidUser(incoming()) && (
+        // Allow updating specific gamification fields
+        incoming().diff(existing()).affectedKeys().hasOnly(['points', 'level', 'badges', 'displayName', 'photoURL'])
+      );
+    }
+
+    // --- Habit Validation ---
+    function isValidHabit(data) {
+      return data.keys().hasAll(['userId', 'name', 'frequency', 'order', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             data.name is string && data.name.size() <= 100 &&
+             data.frequency in ['daily', 'weekly', 'weekdays'] &&
+             data.order is int &&
+             data.createdAt is timestamp;
+    }
+
+    match /habits/{habitId} {
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && isValidHabit(incoming());
+      allow update: if isSignedIn() && existing().userId == request.auth.uid && isValidHabit(incoming()) && (
+        incoming().diff(existing()).affectedKeys().hasAny(['name', 'description', 'icon', 'color', 'frequency', 'order', 'archived'])
+      );
+      allow delete: if isSignedIn() && existing().userId == request.auth.uid;
+    }
+
+    // --- HabitLog Validation ---
+    function isValidHabitLog(data) {
+      return data.keys().hasAll(['habitId', 'userId', 'date', 'status', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             data.habitId is string &&
+             data.date is string && // ISO format string
+             data.status in ['completed', 'skipped', 'failed'] &&
+             data.createdAt is timestamp;
+    }
+
+    match /habitLogs/{logId} {
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && isValidHabitLog(incoming());
+      allow update: if isSignedIn() && existing().userId == request.auth.uid && isValidHabitLog(incoming()) && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['status'])
+      );
+      allow delete: if isSignedIn() && existing().userId == request.auth.uid;
+    }
+  }
+}
